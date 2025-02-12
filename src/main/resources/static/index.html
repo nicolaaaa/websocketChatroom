@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Pink Chatroom</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/styles.css" />
+
+    </head>
+    <body >
+        <script>
+            var ws;
+
+            function connection() {
+                ws = new WebSocket("ws://localhost:8080/greeting");
+
+                ws.onopen = function () {
+                    console.log("Connected to WebSocket");
+                    // Once connected, send an initial test message
+                    ws.send("Hallo Welt");
+                };
+
+                ws.onclose = function () {
+                    console.log("Disconnected. Reconnecting...");
+                    setTimeout(connection, 2000); // Auto-reconnect after 2 seconds
+                };
+
+
+                ws.onmessage = function (evt) {
+                    let receivedData = JSON.parse(evt.data);
+
+                    // Check if this message contains the session ID
+                    if (receivedData.type === "sessionId") {
+                        mySessionId = receivedData.sessionId;
+                        console.log("My session ID:", mySessionId);
+                        return; // Don't display this message in the chat
+                    }
+
+                    let senderId = receivedData.senderId;
+                    let senderName = receivedData.senderName;
+                    let message = receivedData.message;
+
+                    let messages = document.getElementById('messages');
+                    let messageClass = senderId === mySessionId ? "my-message" : "other-message";
+
+                    messages.innerHTML += `<p class="chat-message ${messageClass}"> ${message}</p>`;
+
+                    messages.scrollTop = messages.scrollHeight;
+
+                };
+            }
+            function sendName(event) {
+                event.preventDefault(); // Prevents page reload
+
+                let nameInput = document.getElementById("name").value.trim();
+                if (ws.readyState === WebSocket.OPEN && nameInput) {
+                    ws.send("@name:" + nameInput); // Send a command to change username
+                    document.getElementById("name").placeholder = "Change Name?";
+                    document.getElementById("name").value = ""; // Clear input field
+                } else {
+                    console.log("WebSocket is not open or name is empty.");
+                }
+                return false;
+            }
+
+
+            function sendMessage(event) {
+                event.preventDefault(); // Prevents page reload
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(document.getElementById("message").value);
+                    document.getElementById("message").value = ""; // Clear input after sending
+                } else {
+                    console.log("WebSocket is not open. Cannot send message.");
+                }
+                return false;
+            }
+
+            function disconnect() {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                    console.log("Disconnected from chat.");
+                }
+
+                window.location.href = "https://www.google.com";
+            }
+
+
+            connection();
+
+        </script>
+        <div class="chatroom">
+
+            <form onsubmit="return sendName(event);">
+                <input id="name" type="text" placeholder="Geben Sie ihren Namen ein:" />
+                <button type="submit">Submit</button>
+            </form>
+
+            <div class="chatbox">
+                <div id="messages" >
+                </div>
+            </div>
+            <form onsubmit="return sendMessage(event);">
+                <input id="message" type="text" placeholder="..." />
+                <button type="submit">Submit</button>
+            </form>
+        </div>
+
+        <button id="disconnectBtn" onclick="disconnect()">Leave Chat</button>
+
+    </body>
+</html>
